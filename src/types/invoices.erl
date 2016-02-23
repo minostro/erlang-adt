@@ -1,27 +1,30 @@
 -module(invoices).
 
--record(invoice, {id, amount, memo, title, merchant}).
+-record(invoice, {id, amount, memo, title, merchant, subsidiary}).
 
 %%% Types
 -opaque invoice() :: #invoice{
-			id       :: integer(),
-			amount   :: integer(),
-			memo     :: string(),
-			title    :: string(),
-			merchant :: merchants:merchant()
+			id         :: integer(),
+			amount     :: integer(),
+			memo       :: string(),
+			title      :: string(),
+			merchant   :: merchants:merchant(),
+			subsidiary :: subsidiaries:subsidiary()
 		       }.
 -export_type([invoice/0]).
 
 %%% API
--export([new/4, merchant/1, marshal/2, unmarshal/2]).
+-export([new/5, merchant/1, marshal/2, unmarshal/2]).
 
--spec new(integer(), string(), merchants:merchant(), map()) -> invoice().
-new(Amount, Memo, Merchant, Options) ->
+-spec new(integer(), string(), subsidiaries:subsidiary(), merchants:merchant(), map()) -> invoice().
+new(Amount, Memo, Subsidiary, Merchant, Options) ->
   #invoice{
-     amount   = Amount,
-     memo     = Memo,
-     title    = maps:get(title, Options, ""),
-     merchant = Merchant
+     subsidiary = Subsidiary,
+     merchant   = Merchant,
+     amount     = Amount,
+     memo       = Memo,
+     title      = maps:get(title, Options, ""),
+     id         = maps:get(id, Options, undefined)
   }.
 
 -spec merchant(invoice()) -> merchants:merchant().

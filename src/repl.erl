@@ -3,8 +3,12 @@
 
 -spec new_merchant() -> merchants:merchant().
 new_merchant() ->
-  merchants:new(#{id => 1, legal_entity_id => abc1}).
+  merchants:new(legal_id, "My Company", #{}).
 
--spec new_invoice(merchants:merchant()) -> invoices:invoice().
-new_invoice(Merchant) ->
-  invoices:new(10, "my memo", Merchant, #{title => "my title"}).
+-spec new_subsidiary() -> subsidiaries:subsidiary().
+new_subsidiary() ->
+  subsidiaries:new("Intl-Travel", ch, #{}).
+
+-spec new_invoice(subsidiaries:subsdiary(), merchants:merchant()) -> invoices:invoice().
+new_invoice(Subsidiary, Merchant) ->
+  invoices:new(10, "my memo", Subsidiary, Merchant, #{title => "my title"}).
