@@ -14,7 +14,7 @@
 -export([new/3]).
 
 %%% API Data accessors
--export([get/2]).
+-export([get/2, change/3]).
 
 -spec new(string(), atom(), map()) -> subsidiary().
 new(Name, Country, Options) ->
@@ -38,5 +38,7 @@ get(country, #subsidiary{country = Value}) ->
 get(last_assigned_number, #subsidiary{last_assigned_number = Value}) ->
   Value.
 
+change(last_assigned_number, Value, Subsidiary) ->
+  Subsidiary#subsidiary{last_assigned_number = Value}.
 
 

@@ -14,7 +14,7 @@
 -export_type([invoice/0]).
 
 %%% API
--export([new/5, merchant/1, marshal/2, unmarshal/2]).
+-export([new/5, get/2]).
 
 -spec new(integer(), string(), subsidiaries:subsidiary(), merchants:merchant(), map()) -> invoice().
 new(Amount, Memo, Subsidiary, Merchant, Options) ->
@@ -27,29 +27,18 @@ new(Amount, Memo, Subsidiary, Merchant, Options) ->
      id         = maps:get(id, Options, undefined)
   }.
 
--spec merchant(invoice()) -> merchants:merchant().
-merchant(#invoice{merchant = Merchant}) ->
-  Merchant.
 
--spec marshal(invoice(), json | sql) -> jsx:json_text() | iodata().
-marshal(Invoice, json) ->
-  Attrs = to_proplist(Invoice),
-  jsx:encode(Attrs);
-marshal(Invoice, sql) ->
-  InvoicePropList = to_proplist(Invoice),
-  Attrs = [
-    {merchant_id, merchants:id(invoices:merchant(Invoice))}
-  ] ++ proplists:delete(merchant, InvoicePropList),
-  sqerl:sql({insert, invoices, Attrs}, true).
-
--spec unmarshal(jsx:json_text(), json) -> invoice().
-unmarshal(InvoiceData, json) ->
-  jsx:decode(InvoiceData, [return_maps, {labels, atom}]);
-unmarshal(InvoiceData, sql) ->
-  InvoiceData.
-
-to_proplist(Invoice) ->
-  [{amount, Invoice#invoice.amount},
-   {memo, Invoice#invoice.memo},
-   {title, Invoice#invoice.title},
-   {merchant, Invoice#invoice.merchant}].
+-spec get(merchant, invoice()) -> merchants:merchant()
+       ; (subsidiary, invoice()) -> subsidiaries:subsidiary().
+get(merchant, #invoice{merchant = Value}) ->
+  Value;
+get(subsidiary, #invoice{subsidiary = Value}) ->
+  Value;
+get(id, #invoice{id = Value}) ->
+  Value;
+get(amount, #invoice{amount = Value}) ->
+  Value;
+get(memo, #invoice{memo = Value}) ->
+  Value;
+get(title, #invoice{title = Value}) ->
+  Value.

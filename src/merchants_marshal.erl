@@ -1,6 +1,6 @@
 -module(merchants_marshal).
 
--export([load/3, dump/2]).
+-export([load/2, dump/2]).
 
 -spec dump(merchants:merchant(), json) -> jsx:json_text().
 dump(Merchant, json) ->
@@ -8,15 +8,8 @@ dump(Merchant, json) ->
   Attrs = lists:flatmap(fun(Field)-> [{Field, merchants:get(Field, Merchant)}] end, Fields),
   jsx:encode(Attrs).
 
--spec load(tuple(), list(), postgresql) -> merchants:merchant().
-load(Row, Columns, postgresql) ->
-  lists:map(fun({Column, Value}) -> build_attribute(Column, Value) end, lists:zip(Columns, Row)).
-
-build_attribute({column, Name, Type}, Value) ->
-  {binary_to_atom(Name, utf8), convert_value_to(Value, Type)}.
-
-convert_value_to(Value, int4) ->
-  binary_to_integer(Value);
-convert_value_to(Value, varchar) ->
-  binary_to_list(Value).
-
+-spec load(list(), postgresql) -> merchants:merchant().
+load(Attributes, postgresql) ->
+  LegalEntityId = proplists:get_value(legal_entity_id, Attributes),
+  CompanyName = proplists:get_value(company_name, Attributes),
+  merchants:new(LegalEntityId, CompanyName, maps:from_list(Attributes)).
