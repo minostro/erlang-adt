@@ -1,1 +1,16 @@
-[].
+[{<<"epgsql">>,
+  {git,"https://github.com/epgsql/epgsql.git",
+       {ref,"e0379f93f2fe54055d4e0304dd2fcfe1ffd97ec1"}},
+  0},
+ {<<"jsx">>,
+  {git,"https://github.com/talentdeficit/jsx.git",
+       {ref,"3074d4865b3385a050badf7828ad31490d860df5"}},
+  0},
+ {<<"nicedecimal">>,
+  {git,"https://github.com/talentdeficit/nicedecimal.git",
+       {ref,"970f1f68f241ad6b78c73b8a92f075585153b509"}},
+  1},
+ {<<"sqerl">>,
+  {git,"https://github.com/devinus/sqerl.git",
+       {ref,"b33058b78171699ad80f318ac71dea5750be149f"}},
+  0}].
