@@ -1,6 +1,8 @@
 -module(invoices).
 
 -record(invoice, {id, amount, memo, title, merchant, subsidiary, invoice_details}).
+-belongs_to([merchant, subsidiary]).
+-has_many([invoice_detail]).
 
 %%% Types
 -opaque invoice() :: #invoice{
