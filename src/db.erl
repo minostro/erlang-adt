@@ -42,7 +42,9 @@ table_name(merchant) ->
 table_name(subsidiary) ->
   subsidiaries;
 table_name(invoice_detail) ->
-  invoice_details.
+  invoice_details;
+table_name(contract) ->
+  contracts.
 
 get_connection() ->
   {ok, C} = epgsql:connect("localhost", "test", "", [{database, "test"}]),
@@ -84,7 +86,6 @@ build_select(Type, Condition) ->
 build_insert(Type, Attrs) ->
   TableName = table_name(Type),
   Returning = {returning, id},
-  erlang:display(Attrs),
   sqerl:sql({insert, TableName, Attrs, Returning}, true).
 
 build_update(Type, Attrs, Condition) ->
