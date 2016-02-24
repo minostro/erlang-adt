@@ -1,54 +1,96 @@
 -module(db).
 
--export([find/2, save/2]).
+%%% API definition
+-export([find/2, save/2, where/2]).
+
+where(Type, Condition) ->
+  Connection = get_connection(),
+  Query = build_select(Type, Condition),
+  {ok, Rows} = squery(Connection, Query),
+  lists:map(fun(Row) ->
+		marshal:load(Type, Row, postgresql)
+	    end,
+	    Rows).
 
 -spec find(subsidiary, tuple()) -> subsidiaries:subsidiary()
         ; (merchant, tuple()) -> merchants:merchant()
         ; (invoice, tuple()) -> invoices:invoice().
-find(subsidiary, Condition) ->
-  {ok, C} = epgsql:connect("localhost", "test", "", [{database, "test"}]),
-  Query = sqerl:sql({select, '*', {from, subsidiaries}, {where, Condition}}, true),
-  {ok, [Row | _]} = squery(C, Query),
-  subsidiaries_marshal:load(Row, postgresql);
-find(merchant, Condition) ->
-  {ok, C} = epgsql:connect("localhost", "test", "", [{database, "test"}]),
-  Query = sqerl:sql({select, '*', {from, merchants}, {where, Condition}}, true),
-  {ok, [Row | _]} = squery(C, Query),
-  merchants_marshal:load(Row, postgresql);
-find(invoice, Condition) ->
-  {ok, C} = epgsql:connect("localhost", "test", "", [{database, "test"}]),
-  InvoiceQuery = sqerl:sql({select, '*', {from, invoices}, {where, Condition}}, true),
-  {ok, [InvoiceRow | _]} = squery(C, InvoiceQuery),
-  invoices_marshal:load(InvoiceRow, postgresql).
+find(Type, Condition) ->
+  Connection = get_connection(),
+  Query = build_select(Type, Condition),
+  {ok, [Row | _]} = squery(Connection, Query),
+  marshal:load(Type, Row, postgresql).
 
 -spec save(subsidiary, subsidiaries:subsidiary()) -> subsidiaries:subsidiary()
-       ;  (invoice, invoices:invoice()) -> invoices:invoice()
-       ;  (atom(), list()) -> integer().
-save(subsidiary, Subsidiary) ->
-  NewId = save(subsidiaries, subsidiaries_marshal:dump(Subsidiary, postgresql)),
-  find(subsidiary, {id, '=', NewId});
-save(invoice, Invoice) ->
-  NewId = save(invoices, invoices_marshal:dump(Invoice, postgresql)),
-  find(invoice, {id, '=', NewId});
-save(TableName, Attrs) ->
-  Id = proplists:get_value(id, Attrs),
-  case Id =:= undefined of
-    true -> insert(TableName, proplists:delete(id, Attrs));
-    false ->
-      update(TableName, Id, proplists:delete(id, Attrs)),
-      Id
-  end.
+       ;  (invoice, invoices:invoice()) -> invoices:invoice().
+save(Type, Value) ->
+  [TypeAttrs, Descendants] = marshal:dump(Type, Value, postgresql),
+  Id = save(Type, TypeAttrs, Descendants, proplists:get_value(id, TypeAttrs)),
+  find(Type, {id, '=', Id}).
 
-insert(TableName, Attrs) ->
-  {ok, C} = epgsql:connect("localhost", "test", "", [{database, "test"}]),
-  Query = sqerl:sql({insert, TableName, Attrs, {returning, id}}, true),
-  {ok, [Result]} = iquery(C, Query),
-  proplists:get_value(id, Result).
+save(Type, Attrs, Descendants, undefined) ->
+  insert(Type, proplists:delete(id, Attrs), Descendants);
+save(Type, Attrs, Descendants, Id) ->
+  update(Type, Id, proplists:delete(id, Attrs), Descendants),
+  Id.
 
-update(TableName, Id, Attrs) ->
+%%% Internal Functions
+table_name(invoice) ->
+  invoices;
+table_name(merchant) ->
+  merchants;
+table_name(subsidiary) ->
+  subsidiaries;
+table_name(invoice_detail) ->
+  invoice_details.
+
+get_connection() ->
   {ok, C} = epgsql:connect("localhost", "test", "", [{database, "test"}]),
-  Query = sqerl:sql({update, TableName, Attrs, {where, {'id', '=', Id}}}, true),
-  {ok, 1} = uquery(C, Query).
+  C.
+
+parent_attr(invoice) ->
+  invoice_id.
+
+insert(Type, TypeAttrs, Descendants) ->
+  Connection = get_connection(),
+  Query = build_insert(Type, TypeAttrs),
+  {ok, [Result]} = iquery(Connection, Query),
+  NewId = proplists:get_value(id, Result),
+  save_descendants(Type, NewId, Descendants),
+  NewId.
+
+save_descendants(_, _, []) ->
+  [];
+save_descendants(Type, ParentId, Descendants) ->
+  ParentAttr = [{parent_attr(Type), ParentId}],
+  lists:map(fun({DescType, [Attrs, DescAttrs]}) ->
+		Id = proplists:get_value(id, Attrs),
+		save(DescType, Attrs ++ ParentAttr, DescAttrs, Id)
+	    end,
+	    Descendants).
+
+update(Type, Id, TypeAttrs, Descendants) ->
+  Connection = get_connection(),
+  Query = build_update(Type, TypeAttrs, {id, '=', Id}),
+  {ok, 1} = uquery(Connection, Query),
+  save_descendants(Type, Id, Descendants).
+
+
+build_select(Type, Condition) ->
+  From = {from, table_name(Type)},
+  Where = {where, Condition},
+  sqerl:sql({select, '*', From, Where}, true).
+
+build_insert(Type, Attrs) ->
+  TableName = table_name(Type),
+  Returning = {returning, id},
+  erlang:display(Attrs),
+  sqerl:sql({insert, TableName, Attrs, Returning}, true).
+
+build_update(Type, Attrs, Condition) ->
+  TableName = table_name(Type),
+  Where = {where, Condition},
+  sqerl:sql({update, TableName, Attrs, Where}, true).
 
 uquery(Connection, Query) ->
   {ok, RowsAffected} = epgsql:squery(Connection, Query),

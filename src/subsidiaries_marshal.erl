@@ -9,7 +9,9 @@ dump(Subsidiary, json) ->
   Attrs = to_proplist(Subsidiary),
   jsx:encode(Attrs);
 dump(Subsidiary, postgresql) ->
-  to_proplist(Subsidiary).
+  SubsidiaryAttrs = to_proplist(Subsidiary),
+  Descendants = [],
+  [SubsidiaryAttrs, Descendants].
 
 -spec load(list(), postgresql) -> invoices:invoice().
 load(SubsidiaryAttrs, postgresql) ->

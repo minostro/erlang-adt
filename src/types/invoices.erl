@@ -1,6 +1,6 @@
 -module(invoices).
 
--record(invoice, {id, amount, memo, title, merchant, subsidiary}).
+-record(invoice, {id, amount, memo, title, merchant, subsidiary, invoice_details}).
 
 %%% Types
 -opaque invoice() :: #invoice{
@@ -9,12 +9,13 @@
 			memo       :: string(),
 			title      :: string(),
 			merchant   :: merchants:merchant(),
-			subsidiary :: subsidiaries:subsidiary()
+			subsidiary :: subsidiaries:subsidiary(),
+			invoice_details :: list(invoice_details:invoice_detail())
 		       }.
 -export_type([invoice/0]).
 
 %%% API
--export([new/5, get/2]).
+-export([new/5, get/2, add_invoice_detail/2, add_invoice_details/2]).
 
 -spec new(integer(), string(), subsidiaries:subsidiary(), merchants:merchant(), map()) -> invoice().
 new(Amount, Memo, Subsidiary, Merchant, Options) ->
@@ -24,7 +25,8 @@ new(Amount, Memo, Subsidiary, Merchant, Options) ->
      amount     = Amount,
      memo       = Memo,
      title      = maps:get(title, Options, ""),
-     id         = maps:get(id, Options, undefined)
+     id         = maps:get(id, Options, undefined),
+     invoice_details = maps:get(invoice_details, Options, [])
   }.
 
 
@@ -41,4 +43,16 @@ get(amount, #invoice{amount = Value}) ->
 get(memo, #invoice{memo = Value}) ->
   Value;
 get(title, #invoice{title = Value}) ->
+  Value;
+get(invoice_details, #invoice{invoice_details = Value}) ->
   Value.
+
+
+add_invoice_details([], Invoice) ->
+  Invoice;
+add_invoice_details([InvoiceDetail | Rest], #invoice{invoice_details = Value} = Invoice) ->
+  add_invoice_details(Rest, Invoice#invoice{invoice_details = [InvoiceDetail | Value]}).
+
+-spec add_invoice_detail(invoice_details:invoice_detail(), invoice()) -> invoice().
+add_invoice_detail(InvoiceDetail, #invoice{invoice_details = Value} = Invoice) ->
+  Invoice#invoice{invoice_details = [InvoiceDetail | Value]}.
