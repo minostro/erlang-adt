@@ -31,7 +31,7 @@ load(InvoiceAttrs, postgresql) ->
   Merchant = db:find(merchant, {id, '=', MerchantId}),
   InvoiceDetails = db:where(invoice_detail, {invoice_id, '=', InvoiceId}),
   Invoice = invoices:new(Amount, Memo, Subsidiary, Merchant, maps:from_list(InvoiceAttrs)),
-  invoices:add_invoice_details(InvoiceDetails, Invoice).
+  invoices:set(invoice_details, InvoiceDetails, Invoice).
 
 to_proplist(Invoice) ->
   to_proplist(Invoice, []).

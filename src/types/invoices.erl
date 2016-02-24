@@ -17,7 +17,7 @@
 -export_type([invoice/0]).
 
 %%% API
--export([new/5, get/2, add_invoice_detail/2, add_invoice_details/2]).
+-export([new/5, get/2, set/3]).
 
 -spec new(integer(), string(), subsidiaries:subsidiary(), merchants:merchant(), map()) -> invoice().
 new(Amount, Memo, Subsidiary, Merchant, Options) ->
@@ -49,12 +49,5 @@ get(title, #invoice{title = Value}) ->
 get(invoice_details, #invoice{invoice_details = Value}) ->
   Value.
 
-
-add_invoice_details([], Invoice) ->
-  Invoice;
-add_invoice_details([InvoiceDetail | Rest], #invoice{invoice_details = Value} = Invoice) ->
-  add_invoice_details(Rest, Invoice#invoice{invoice_details = [InvoiceDetail | Value]}).
-
--spec add_invoice_detail(invoice_details:invoice_detail(), invoice()) -> invoice().
-add_invoice_detail(InvoiceDetail, #invoice{invoice_details = Value} = Invoice) ->
-  Invoice#invoice{invoice_details = [InvoiceDetail | Value]}.
+set(invoice_details, InvoiceDetails, #invoice{invoice_details = Value} = Invoice) ->
+  Invoice#invoice{invoice_details = lists:append(InvoiceDetails, Value)}.

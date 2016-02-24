@@ -7,7 +7,7 @@
 vouchers(_ContractId) ->
   lists:map(
     fun build_voucher/1,
-    [bought, bought, bought, redeemed]).
+    ["bought", "bought", "bought", "redeemed"]).
 
 %%% Internal functions
 build_voucher(State) ->
