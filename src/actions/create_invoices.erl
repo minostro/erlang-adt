@@ -11,5 +11,5 @@ perform(Subsidiary, Merchant) ->
 		VoucherSummaries).
 
 voucher_summary(Contract) ->
-  VoucherSummary = voucher_service:vouchers(Contract),
+  {ok, VoucherSummary} = voucher_service:voucher_summary(Contract),
   {Contract, VoucherSummary}.

@@ -1,6 +1,19 @@
 -module(create_invoice).
+-behaviour(gen_server).
 
--export([perform/3]).
+%%% API Module declaration
+-export([call/3, perform/3]).
+
+%%% API Gen Server declaration
+-export([init/1,
+	 handle_call/3,
+	 handle_cast/2,
+	 handle_info/2,
+	 terminate/2,
+	 code_change/3]).
+
+call(Subsidiary, Contract, VoucherSummaries) ->
+  gen_server:start_link(?MODULE, [self(), Subsidiary, Contract, VoucherSummaries], []).
 
 perform(Subsidiary, Contract, VoucherSummaries) ->
   Invoice = build_invoice(Subsidiary, Contract, VoucherSummaries),
@@ -27,3 +40,27 @@ invoice_total_amount(InvoiceDetails) ->
 	      end,
 	      0,
 	      InvoiceDetails).
+
+%%%===================================================================
+%%% Gen Server Implementation
+%%%===================================================================
+init(State) ->
+  {ok, State, 0}.
+
+handle_info(timeout, [From, Subsidiary, Contract, VoucherSummaries] = State) ->
+  Invoice = perform(Subsidiary, Contract, VoucherSummaries),
+  From ! {ok, {create_invoice, Invoice}},
+  {stop, normal, State}.
+
+handle_call(_Request, _From, State) ->
+  Reply = ok,
+  {reply, Reply, State}.
+
+handle_cast(_Msg, State) ->
+  {noreply, State}.
+
+terminate(_Reason, _State) ->
+  ok.
+
+code_change(_OldVsn, State, _Extra) ->
+  {ok, State}.
