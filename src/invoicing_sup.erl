@@ -14,5 +14,26 @@ start_link() ->
   supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 init([]) ->
-  %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
-  {ok, { {one_for_all, 0, 1}, []} }.
+  SupervisorFlags = #{
+    strategy => one_for_one,
+    intensity => 1,
+    period => 5},
+  VoucherService = #{
+    id => voucher_service,
+    start => {voucher_service, start_link, []},
+    restart => permanent,
+    shutdown => brutal_kill},
+  ProcessMerchantSup = #{
+    id => process_merchant_sup,
+    start => {process_merchant_sup, start_link, []},
+    restart => permanent,
+    shutdown => brutal_kill,
+    type => supervisor},
+  CreateInvoicesSup = #{
+    id => create_invoices_sup,
+    start => {create_invoices_sup, start_link, []},
+    restart => permanent,
+    shutdown => brutal_kill,
+    type => supervisor},
+  Children = [VoucherService, ProcessMerchantSup, CreateInvoicesSup],
+  {ok, {SupervisorFlags, Children} }.

@@ -1,80 +1,66 @@
 -module(create_invoices).
+-behaviour(gen_server).
 
--behaviour(gen_fsm).
+%%% API Module declaration
+-export([start_link/4, perform/3]).
 
-%% API
--export([call/2, perform/2]).
-
-%% gen_fsm callbacks
+%%% API Gen Server declaration
 -export([init/1,
-	 idle/2,
-	 creating_invoices/2,
-	 handle_event/3,
-	 handle_sync_event/4,
-	 handle_info/3,
-	 terminate/3,
-	 code_change/4]).
+	 handle_call/3,
+	 handle_cast/2,
+	 handle_info/2,
+	 terminate/2,
+	 code_change/3]).
 
--define(SERVER, ?MODULE).
+start_link(From, Subsidiary, Contract, VoucherSummaries) ->
+  gen_server:start_link(?MODULE, [From, Subsidiary, Contract, VoucherSummaries], []).
 
--record(state, {subsidiary, merchant, working_count = 0}).
+perform(Subsidiary, Contract, VoucherSummaries) ->
+  Invoice = build_invoice(Subsidiary, Contract, VoucherSummaries),
+  db:save(invoice, Invoice).
 
-call(Subsidiary, Merchant) ->
-  gen_fsm:start_link(?MODULE, [Subsidiary, Merchant], []).
+-spec build_invoice(subsidiaries:subsidiary(), contracts:contract(), list()) -> invoices:invoice().
+build_invoice(Subsidiary, Contract, VoucherSummaries) ->
+  Merchant = contracts:get(merchant, Contract),
+  InvoiceDetails = lists:map(fun build_invoice_detail/1, VoucherSummaries),
+  InvoiceTotal = invoice_total_amount(InvoiceDetails),
+  Invoice = invoices:new(InvoiceTotal, "memo", Subsidiary, Merchant, #{}),
+  invoices:set(invoice_details, InvoiceDetails, Invoice).
 
-init([Subsidiary, Merchant]) ->
-  State = #state{
-	     subsidiary = Subsidiary,
-	     merchant = Merchant
-	    },
-  {ok, idle, State, 0}.
+-spec build_invoice_detail(tuple()) -> invoice_details:invoice_detail().
+build_invoice_detail({voucher, VoucherInfo}) ->
+  Description = "voucher -" ++ proplists:get_value(state, VoucherInfo),
+  VoucherCount = proplists:get_value(count, VoucherInfo),
+  VoucherAmount = proplists:get_value(amount, VoucherInfo),
+  invoice_details:new(Description, VoucherCount * VoucherAmount, #{}).
 
-idle(timeout, #state{subsidiary = Subsidiary, merchant = Merchant} = State) ->
-  Contracts = merchants:get(contracts, Merchant),
-  VoucherSummaries = lists:map(fun voucher_summary/1, Contracts),
-  lists:foreach(fun({Contract, VoucherSummary}) ->
-		    {ok, _WorkerPid} = create_invoice:call(Subsidiary, Contract, VoucherSummary)
-		end,
-		VoucherSummaries),
-  {next_state, creating_invoices, State#state{working_count = length(Contracts)}}.
+invoice_total_amount(InvoiceDetails) ->
+  lists:foldl(fun(InvoiceDetail, Sum) ->
+		  Sum + invoice_details:get(amount, InvoiceDetail)
+	      end,
+	      0,
+	      InvoiceDetails).
 
-creating_invoices({invoice_created, _Invoice}, #state{working_count = WorkingCount} = State) ->
-  NewWorkingCount = WorkingCount - 1,
-  NewState = State#state{working_count = NewWorkingCount},
-  case NewWorkingCount == 0 of
-    true  -> {stop, normal, NewState};
-    false -> {next_state, creating_invoices, NewState}
-  end.
+%%%===================================================================
+%%% Gen Server Implementation
+%%%===================================================================
+init(State) ->
+  {ok, State, 0}.
 
-handle_event(status, StateName, State) ->
-  {reply, State, StateName, State}.
+handle_info(timeout, [From, Subsidiary, Contract, VoucherSummaries] = State) ->
+  Invoice = perform(Subsidiary, Contract, VoucherSummaries),
+  From ! {ok, {create_invoice, Invoice}},
+  {stop, normal, State}.
 
-handle_sync_event(_Event, _From, StateName, State) ->
+handle_call(_Request, _From, State) ->
   Reply = ok,
-  {reply, Reply, StateName, State}.
+  {reply, Reply, State}.
 
-handle_info({ok, {create_invoice, Invoice}}, creating_invoices, State) ->
-  gen_fsm:send_event(self(), {invoice_created, Invoice}),
-  {next_state, creating_invoices, State}.
+handle_cast(_Msg, State) ->
+  {noreply, State}.
 
-
-terminate(_Reason, _StateName, _State) ->
+terminate(_Reason, _State) ->
   ok.
 
-code_change(_OldVsn, StateName, State, _Extra) ->
-  {ok, StateName, State}.
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
-perform(Subsidiary, Merchant) ->
-  Contracts = merchants:get(contracts, Merchant),
-  VoucherSummaries = lists:map(fun voucher_summary/1, Contracts),
-  lists:foreach(fun({Contract, VoucherSummary}) ->
-		    create_invoice:perform(Subsidiary, Contract, VoucherSummary)
-		end,
-		VoucherSummaries).
-
-voucher_summary(Contract) ->
-  {ok, VoucherSummary} = voucher_service:voucher_summary(Contract),
-  {Contract, VoucherSummary}.
+code_change(_OldVsn, State, _Extra) ->
+  {ok, State}.
