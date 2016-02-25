@@ -1,8 +1,8 @@
-{application, adt,
- [{description, "An OTP application"},
+{application, invoicing,
+ [{description, "Invoice Service"},
   {vsn, "0.1.0"},
   {registered, []},
-  {mod, { adt_app, []}},
+  {mod, { invoicing_app, []}},
   {applications,
    [kernel,
     stdlib
