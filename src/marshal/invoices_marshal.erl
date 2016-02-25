@@ -21,17 +21,14 @@ dump(Invoice, postgresql) ->
   [InvoiceAttrs, InvoiceDetails].
 
 -spec load(list(), postgresql) -> invoices:invoice().
-load(InvoiceAttrs, postgresql) ->
-  Amount = proplists:get_value(amount, InvoiceAttrs),
-  Memo = proplists:get_value(memo, InvoiceAttrs),
-  InvoiceId = proplists:get_value(id, InvoiceAttrs),
-  MerchantId = proplists:get_value(merchant_id, InvoiceAttrs),
-  SubsidiaryId = proplists:get_value(subsidiary_id, InvoiceAttrs),
-  Subsidiary = db:find(subsidiary, {id, '=', SubsidiaryId}),
-  Merchant = db:find(merchant, {id, '=', MerchantId}),
-  InvoiceDetails = db:where(invoice_detail, {invoice_id, '=', InvoiceId}),
-  Invoice = invoices:new(Amount, Memo, Subsidiary, Merchant, maps:from_list(InvoiceAttrs)),
-  invoices:set(invoice_details, InvoiceDetails, Invoice).
+load(Attributes, postgresql) ->
+  InvoiceId = proplists:get_value(id, Attributes),
+  Amount = proplists:get_value(amount, Attributes),
+  Memo = proplists:get_value(memo, Attributes),
+  BelongsTo = load_belongs_to(Attributes),
+  InvoiceDetails = store:where(postgresql, invoice_detail, {invoice_id, '=', InvoiceId}),
+  Args = [Amount, Memo] ++ BelongsTo ++ [maps:from_list(Attributes)],
+  invoices:set(invoice_details, InvoiceDetails, apply(invoices, new, Args)).
 
 to_proplist(Invoice) ->
   to_proplist(Invoice, []).
@@ -39,3 +36,11 @@ to_proplist(Invoice) ->
 to_proplist(Invoice, ExcludedFields) ->
   Fields = lists:subtract(?FIELDS, ExcludedFields),
   lists:flatmap(fun(Field)-> [{Field, invoices:get(Field, Invoice)}] end, Fields).
+
+load_belongs_to(Attributes) ->
+  BelongsTo = proplists:get_value(belongs_to, invoices:module_info(attributes)),
+  lists:map(fun({Type, FKey}) ->
+		ForeignKeyValue = proplists:get_value(FKey, Attributes),
+		store:find(postgresql, Type, {id, '=', ForeignKeyValue})
+	    end,
+	    BelongsTo).

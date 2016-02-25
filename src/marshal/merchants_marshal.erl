@@ -17,7 +17,17 @@ dump(Merchant, postgresql) ->
 load(Attributes, postgresql) ->
   LegalEntityId = proplists:get_value(legal_entity_id, Attributes),
   CompanyName = proplists:get_value(company_name, Attributes),
-  merchants:new(LegalEntityId, CompanyName, maps:from_list(Attributes)).
+  BelongsTo = load_belongs_to(Attributes),
+  Args = [LegalEntityId, CompanyName] ++ BelongsTo ++ [maps:from_list(Attributes)],
+  apply(merchants, new, Args).
 
 to_proplist(Merchant) ->
   lists:flatmap(fun(Field)-> [{Field, merchants:get(Field, Merchant)}] end, ?FIELDS).
+
+load_belongs_to(Attributes) ->
+  BelongsTo = proplists:get_value(belongs_to, merchants:module_info(attributes)),
+  lists:map(fun({Type, FKey}) ->
+		ForeignKeyValue = proplists:get_value(FKey, Attributes),
+		store:find(postgresql, Type, {id, '=', ForeignKeyValue})
+	    end,
+	    BelongsTo).

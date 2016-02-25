@@ -1,6 +1,7 @@
 -module(contracts).
 
--belongs_to([merchant]).
+-belongs_to([{merchant, merchant_id}]).
+-has_many([{invoice, invoices}]).
 
 -record(contract, {id, number, merchant}).
 %%% Types

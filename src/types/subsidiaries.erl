@@ -1,5 +1,7 @@
 -module(subsidiaries).
 
+-belongs_to([]).
+
 -record(subsidiary, {id, name, country, last_assigned_number}).
 %%% Types
 -opaque subsidiary() :: #subsidiary{

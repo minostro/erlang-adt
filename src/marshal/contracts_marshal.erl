@@ -10,9 +10,9 @@ dump(Contract, json) ->
   jsx:encode(Attrs);
 dump(Contract, postgresql) ->
   Attrs = to_proplist(Contract, belongs_to()),
-  BelongsToAttrs = lists:map(fun(Type) ->
+  BelongsToAttrs = lists:map(fun({Type, FKey}) ->
 				 ModuleType = pluralize(Type),
-				 {belongs_to_name(Type), ModuleType:get(id, (contracts:get(Type, Contract)))}
+				 {FKey, ModuleType:get(id, (contracts:get(Type, Contract)))}
 			     end,
 			     belongs_to()),
   ContractAttrs = lists:append(Attrs, BelongsToAttrs),
@@ -20,14 +20,11 @@ dump(Contract, postgresql) ->
   [ContractAttrs, Descendants].
 
 -spec load(list(), postgresql) -> contracts:contract().
-load(ContractAttributes, postgresql) ->
-  Number = proplists:get_value(legal_entity_id, ContractAttributes),
-  %HINT: it's interesting that I will need to make constructors,
-  %more flexibles in order to support generic initialization of
-  %the types here.
-  MerchantId = proplists:get_value(merchant_id, ContractAttributes),
-  Merchant = db:find(merchant, {id, '=', MerchantId}),
-  contracts:new(Number, Merchant, maps:from_list(ContractAttributes)).
+load(Attributes, postgresql) ->
+  Number = proplists:get_value(legal_entity_id, Attributes),
+  BelongsTo = load_belongs_to(Attributes),
+  Args = [Number] ++ BelongsTo ++ [maps:from_list(Attributes)],
+  apply(contracts, new, Args).
 
 to_proplist(Contract) ->
   to_proplist(Contract, []).
@@ -40,8 +37,13 @@ belongs_to() ->
   ModuleAttrs = contracts:module_info(attributes),
   proplists:get_value(belongs_to, ModuleAttrs).
 
-belongs_to_name(Type) when is_atom(Type) ->
-  list_to_atom(atom_to_list(Type) ++ "_id").
-
 pluralize(Type) ->
   list_to_atom(atom_to_list(Type) ++ "s").
+
+load_belongs_to(Attributes) ->
+  BelongsTo = proplists:get_value(belongs_to, contracts:module_info(attributes)),
+  lists:map(fun({Type, FKey}) ->
+		ForeignKeyValue = proplists:get_value(FKey, Attributes),
+		store:find(postgresql, Type, {id, '=', ForeignKeyValue})
+	    end,
+	    BelongsTo).

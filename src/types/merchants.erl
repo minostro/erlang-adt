@@ -1,28 +1,31 @@
 -module(merchants).
 
--has_many([contract]).
+-belongs_to([{subsidiary, subsidiary_id}]).
+-has_many([{contract, contracts}]).
 
--record(merchant, {id, legal_entity_id, company_name, contracts = []}).
+-record(merchant, {id, legal_entity_id, company_name, subsidiary, contracts = []}).
 %%% Types
 -opaque merchant() :: #merchant{
 			 id               :: integer(),
 			 legal_entity_id  :: string(),
 			 company_name     :: string(),
+			 subsidiary       :: subsidiaries:subsidiary(),
 			 contracts        :: list(contracts:contract())
 			}.
 -export_type([merchant/0]).
 
 %%% API
--export([new/3]).
+-export([new/4]).
 
 %%% API Data accessors
 -export([get/2, set/3]).
 
--spec new(string(), string(), map()) -> merchant().
-new(LegalEntityId, CompanyName, Options) ->
+-spec new(string(), string(), subsidiaries:subsidiary(), map()) -> merchant().
+new(LegalEntityId, CompanyName, Subsidiary, Options) ->
   #merchant{
      legal_entity_id = LegalEntityId,
      company_name    = CompanyName,
+     subsidiary      = Subsidiary,
      id              = maps:get(id, Options, undefined)
   }.
 
@@ -34,6 +37,8 @@ get(id, #merchant{id = Value}) ->
 get(legal_entity_id, #merchant{legal_entity_id = Value}) ->
   Value;
 get(company_name, #merchant{company_name = Value}) ->
+  Value;
+get(subsidiary, #merchant{subsidiary = Value}) ->
   Value;
 get(contracts, #merchant{contracts = Value}) ->
   Value.
