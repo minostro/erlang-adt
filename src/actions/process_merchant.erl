@@ -33,7 +33,7 @@ idle(timeout, #state{subsidiary = Subsidiary, merchant = Merchant} = State) ->
   Contracts = merchants:get(contracts, Merchant),
   VoucherSummaries = lists:map(fun voucher_summary/1, Contracts),
   lists:foreach(fun({Contract, VoucherSummary}) ->
-		    {ok, _WorkerPid} = create_invoices_sup:start_child([self(), Subsidiary, Contract, VoucherSummary])
+		    {ok, _WorkerPid} = invoicing:create_invoices(Subsidiary, Contract, VoucherSummary)
 		end,
 		VoucherSummaries),
   {next_state, creating_invoices, State#state{working_count = length(Contracts)}}.
