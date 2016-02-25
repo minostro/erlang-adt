@@ -3,36 +3,28 @@
 %%% API definition
 -export([find/2, save/2, where/2]).
 
+-spec find(subsidiary | merchant | invoice, tuple()) -> {ok, proplists:proplist()}.
+find(Type, Condition) ->
+  {ok, [Row | _]} = where(Type, Condition),
+  {ok, Row}.
+
+-spec where(subsdiary | merchant | invoice, tuple) -> {ok, list(proplists:proplist())}.
 where(Type, Condition) ->
   Connection = get_connection(),
   Query = build_select(Type, Condition),
   {ok, Rows} = squery(Connection, Query),
-  lists:map(fun(Row) ->
-		marshal:load(Type, Row, postgresql)
-	    end,
-	    Rows).
+  {ok, Rows}.
 
--spec find(subsidiary, tuple()) -> subsidiaries:subsidiary()
-        ; (merchant, tuple()) -> merchants:merchant()
-        ; (invoice, tuple()) -> invoices:invoice().
-find(Type, Condition) ->
-  Connection = get_connection(),
-  Query = build_select(Type, Condition),
-  {ok, [Row | _]} = squery(Connection, Query),
-  marshal:load(Type, Row, postgresql).
-
--spec save(subsidiary, subsidiaries:subsidiary()) -> subsidiaries:subsidiary()
-       ;  (invoice, invoices:invoice()) -> invoices:invoice().
+-spec save(subsidiary, subsidiaries:subsidiary()) -> {ok, integer()}
+       ;  (invoice, invoices:invoice()) -> {ok, integer()}.
 save(Type, Value) ->
   [TypeAttrs, Descendants] = marshal:dump(Type, Value, postgresql),
-  Id = save(Type, TypeAttrs, Descendants, proplists:get_value(id, TypeAttrs)),
-  find(Type, {id, '=', Id}).
+  save(Type, TypeAttrs, Descendants, proplists:get_value(id, TypeAttrs)).
 
 save(Type, Attrs, Descendants, undefined) ->
   insert(Type, proplists:delete(id, Attrs), Descendants);
 save(Type, Attrs, Descendants, Id) ->
-  update(Type, Id, proplists:delete(id, Attrs), Descendants),
-  Id.
+  update(Type, Id, proplists:delete(id, Attrs), Descendants).
 
 %%% Internal Functions
 table_name(invoice) ->
@@ -59,7 +51,7 @@ insert(Type, TypeAttrs, Descendants) ->
   {ok, [Result]} = iquery(Connection, Query),
   NewId = proplists:get_value(id, Result),
   save_descendants(Type, NewId, Descendants),
-  NewId.
+  {ok, NewId}.
 
 save_descendants(_, _, []) ->
   [];
@@ -75,7 +67,8 @@ update(Type, Id, TypeAttrs, Descendants) ->
   Connection = get_connection(),
   Query = build_update(Type, TypeAttrs, {id, '=', Id}),
   {ok, 1} = uquery(Connection, Query),
-  save_descendants(Type, Id, Descendants).
+  save_descendants(Type, Id, Descendants),
+  {ok, Id}.
 
 
 build_select(Type, Condition) ->
