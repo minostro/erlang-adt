@@ -1,17 +1,17 @@
 -module(marshal).
 
--export([load/3, dump/3]).
+-export([load/5, dump/3]).
 
-load(invoice, Data, Context) ->
-  invoices_marshal:load(Data, Context);
-load(subsidiary, Data, Context) ->
-  subsidiaries_marshal:load(Data, Context);
-load(merchant, Data, Context) ->
-  merchants_marshal:load(Data, Context);
-load(invoice_detail, Data, Context) ->
-  invoice_details_marshal:load(Data, Context);
-load(contract, Data, Context) ->
-  contracts_marshal:load(Data, Context).
+load(invoice, Data, BelongsToData, HasManyData, Context) ->
+  invoices_marshal:load(Data, BelongsToData, HasManyData, Context);
+load(subsidiary, Data, BelongsToData, HasManyData, Context) ->
+  subsidiaries_marshal:load(Data, BelongsToData, HasManyData, Context);
+load(merchant, Data, BelongsToData, HasManyData, Context) ->
+  merchants_marshal:load(Data, BelongsToData, HasManyData, Context);
+load(invoice_detail, Data, BelongsToData, HasManyData, Context) ->
+  invoice_details_marshal:load(Data, BelongsToData, HasManyData, Context);
+load(contract, Data, BelongsToData, HasManyData, Context) ->
+  contracts_marshal:load(Data, BelongsToData, HasManyData, Context).
 
 dump(invoice, Invoice, Context) ->
   invoices_marshal:dump(Invoice, Context);

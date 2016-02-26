@@ -1,7 +1,7 @@
 -module(invoices_marshal).
 -define(FIELDS, [id, title, memo, amount, merchant, subsidiary]).
 
--export([load/2, dump/2]).
+-export([load/4, dump/2]).
 
 -spec dump(invoices:invoice(), json) -> jsx:json_text().
 dump(Invoice, json) ->
@@ -20,15 +20,16 @@ dump(Invoice, postgresql) ->
 			     invoices:get(invoice_details, Invoice)),
   [InvoiceAttrs, InvoiceDetails].
 
--spec load(list(), postgresql) -> invoices:invoice().
-load(Attributes, postgresql) ->
+-spec load(list(), list(), list(), postgresql) -> invoices:invoice().
+load(Attributes, BelongsToAttrs, _HasManyAttrs, postgresql) ->
   InvoiceId = proplists:get_value(id, Attributes),
   Amount = proplists:get_value(amount, Attributes),
   Memo = proplists:get_value(memo, Attributes),
-  BelongsTo = load_belongs_to(Attributes),
-  InvoiceDetails = store:where(postgresql, invoice_detail, {invoice_id, '=', InvoiceId}),
+  BelongsTo = load_belongs_to(BelongsToAttrs, postgresql),
+  %InvoiceDetails = store:where(postgresql, invoice_detail, {invoice_id, '=', InvoiceId}),
   Args = [Amount, Memo] ++ BelongsTo ++ [maps:from_list(Attributes)],
-  invoices:set(invoice_details, InvoiceDetails, apply(invoices, new, Args)).
+  apply(invoices, new, Args).
+  %invoices:set(invoice_details, InvoiceDetails, apply(invoices, new, Args)).
 
 to_proplist(Invoice) ->
   to_proplist(Invoice, []).
@@ -37,10 +38,8 @@ to_proplist(Invoice, ExcludedFields) ->
   Fields = lists:subtract(?FIELDS, ExcludedFields),
   lists:flatmap(fun(Field)-> [{Field, invoices:get(Field, Invoice)}] end, Fields).
 
-load_belongs_to(Attributes) ->
-  BelongsTo = proplists:get_value(belongs_to, invoices:module_info(attributes)),
-  lists:map(fun({Type, FKey}) ->
-		ForeignKeyValue = proplists:get_value(FKey, Attributes),
-		store:find(postgresql, Type, {id, '=', ForeignKeyValue})
+load_belongs_to(BelongsToAttrs, Backend) ->
+  lists:map(fun({Type, Attrs, BelongsTo, HasMany}) ->
+		{Type, marshal:load(Type, Attrs, BelongsTo, HasMany, Backend)}
 	    end,
-	    BelongsTo).
+	    BelongsToAttrs).

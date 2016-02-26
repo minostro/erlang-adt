@@ -2,7 +2,7 @@
 -define(FIELDS, [id, number, merchant]).
 
 %%% API definition
--export([load/2, dump/2]).
+-export([load/4, dump/2]).
 
 -spec dump(contracts:contract(), json) -> jsx:json_text().
 dump(Contract, json) ->
@@ -19,10 +19,10 @@ dump(Contract, postgresql) ->
   Descendants = [],
   [ContractAttrs, Descendants].
 
--spec load(list(), postgresql) -> contracts:contract().
-load(Attributes, postgresql) ->
+-spec load(list(), list(), list(), postgresql) -> contracts:contract().
+load(Attributes, BelongsToAttrs, _HasManyAttrs, postgresql) ->
   Number = proplists:get_value(legal_entity_id, Attributes),
-  BelongsTo = load_belongs_to(Attributes),
+  BelongsTo = load_belongs_to(BelongsToAttrs, postgresql),
   Args = [Number] ++ BelongsTo ++ [maps:from_list(Attributes)],
   apply(contracts, new, Args).
 
@@ -40,10 +40,9 @@ belongs_to() ->
 pluralize(Type) ->
   list_to_atom(atom_to_list(Type) ++ "s").
 
-load_belongs_to(Attributes) ->
-  BelongsTo = proplists:get_value(belongs_to, contracts:module_info(attributes)),
-  lists:map(fun({Type, FKey}) ->
-		ForeignKeyValue = proplists:get_value(FKey, Attributes),
-		store:find(postgresql, Type, {id, '=', ForeignKeyValue})
+load_belongs_to(BelongsToAttrs, Backend) ->
+  lists:map(fun({Type, Attrs, BelongsTo, HasMany}) ->
+		erlang:display(Attrs),
+		{Type, marshal:load(Type, Attrs, BelongsTo, HasMany, Backend)}
 	    end,
-	    BelongsTo).
+	    BelongsToAttrs).

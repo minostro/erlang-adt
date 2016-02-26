@@ -1,30 +1,83 @@
--module(db).
+-module(postgresql).
+
+-behaviour(gen_server).
 
 %%% API definition
--export([find/2, save/2, where/2]).
+-export([start_link/0,
+	 find/2,
+	 save/2,
+	 where/2]).
 
--spec find(subsidiary | merchant | invoice, tuple()) -> {ok, proplists:proplist()}.
+%% gen_server callbacks
+-export([init/1,
+	 handle_call/3,
+	 handle_cast/2,
+	 handle_info/2,
+	 terminate/2,
+	 code_change/3]).
+
+-define(SERVER, ?MODULE).
+
+-record(state, {connection}).
+
+start_link() ->
+  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+where(Type, Condition) ->
+  gen_server:call(?SERVER, {where, Type, Condition}).
+
 find(Type, Condition) ->
-  {ok, [Row | _]} = where(Type, Condition),
+  gen_server:call(?SERVER, {find, Type, Condition}).
+
+save(Type, Value) ->
+  gen_server:call(?SERVER, {save, Type, Value}).
+
+init([]) ->
+  {ok, #state{connection = get_connection()}}.
+
+handle_call({where, Type, Condition}, _From, #state{connection = Connection} = State) ->
+  Reply = handle_where(Type, Condition, Connection),
+  {reply, Reply, State};
+handle_call({find, Type, Condition}, _From, #state{connection = Connection} = State) ->
+  Reply = handle_find(Type, Condition, Connection),
+  {reply, Reply, State};
+handle_call({save, Type, Value}, _From, #state{connection = Connection} = State) ->
+  Reply = handle_save(Type, Value, Connection),
+  {reply, Reply, State}.
+
+handle_cast(_Msg, State) ->
+  {noreply, State}.
+
+handle_info(_Info, State) ->
+  {noreply, State}.
+
+terminate(_Reason, _State) ->
+  ok.
+
+code_change(_OldVsn, State, _Extra) ->
+  {ok, State}.
+
+-spec handle_find(subsidiary | merchant | invoice, tuple(), any()) -> {ok, proplists:proplist()}.
+handle_find(Type, Condition, Connection) ->
+  {ok, [Row | _]} = handle_where(Type, Condition, Connection),
   {ok, Row}.
 
--spec where(subsdiary | merchant | invoice, tuple) -> {ok, list(proplists:proplist())}.
-where(Type, Condition) ->
-  Connection = get_connection(),
+-spec handle_where(subsdiary | merchant | invoice, tuple(), any()) -> {ok, list(proplists:proplist())}.
+handle_where(Type, Condition, Connection) ->
   Query = build_select(Type, Condition),
   {ok, Rows} = squery(Connection, Query),
   {ok, Rows}.
 
--spec save(subsidiary, subsidiaries:subsidiary()) -> {ok, integer()}
-       ;  (invoice, invoices:invoice()) -> {ok, integer()}.
-save(Type, Value) ->
+-spec handle_save(subsidiary, subsidiaries:subsidiary(), any()) -> {ok, integer()}
+       ;  (invoice, invoices:invoice(), any()) -> {ok, integer()}.
+handle_save(Type, Value, Connection) ->
   [TypeAttrs, Descendants] = marshal:dump(Type, Value, postgresql),
-  save(Type, TypeAttrs, Descendants, proplists:get_value(id, TypeAttrs)).
+  save(Type, TypeAttrs, Descendants, Connection, proplists:get_value(id, TypeAttrs)).
 
-save(Type, Attrs, Descendants, undefined) ->
-  insert(Type, proplists:delete(id, Attrs), Descendants);
-save(Type, Attrs, Descendants, Id) ->
-  update(Type, Id, proplists:delete(id, Attrs), Descendants).
+save(Type, Attrs, Descendants, Connection, undefined) ->
+  insert(Type, proplists:delete(id, Attrs), Descendants, Connection);
+save(Type, Attrs, Descendants, Connection, Id) ->
+  update(Type, Id, proplists:delete(id, Attrs), Descendants, Connection).
 
 %%% Internal Functions
 table_name(invoice) ->
@@ -45,29 +98,27 @@ get_connection() ->
 parent_attr(invoice) ->
   invoice_id.
 
-insert(Type, TypeAttrs, Descendants) ->
-  Connection = get_connection(),
+insert(Type, TypeAttrs, Descendants, Connection) ->
   Query = build_insert(Type, TypeAttrs),
   {ok, [Result]} = iquery(Connection, Query),
   NewId = proplists:get_value(id, Result),
-  save_descendants(Type, NewId, Descendants),
+  save_descendants(Type, NewId, Connection, Descendants),
   {ok, NewId}.
 
-save_descendants(_, _, []) ->
+save_descendants(_, _, _, []) ->
   [];
-save_descendants(Type, ParentId, Descendants) ->
+save_descendants(Type, ParentId, Connection, Descendants) ->
   ParentAttr = [{parent_attr(Type), ParentId}],
   lists:map(fun({DescType, [Attrs, DescAttrs]}) ->
 		Id = proplists:get_value(id, Attrs),
-		save(DescType, Attrs ++ ParentAttr, DescAttrs, Id)
+		save(DescType, Attrs ++ ParentAttr, DescAttrs, Connection, Id)
 	    end,
 	    Descendants).
 
-update(Type, Id, TypeAttrs, Descendants) ->
-  Connection = get_connection(),
+update(Type, Id, TypeAttrs, Descendants, Connection) ->
   Query = build_update(Type, TypeAttrs, {id, '=', Id}),
   {ok, 1} = uquery(Connection, Query),
-  save_descendants(Type, Id, Descendants),
+  save_descendants(Type, Id, Connection, Descendants),
   {ok, Id}.
 
 
