@@ -65,8 +65,17 @@ handle_where(Type, Condition, Backend) ->
 		 Rows)}.
 
 handle_find(Type, Condition, Backend) ->
-  {Type, Row, BelongsTo, HasMany} = find(Type, Condition, Backend),
-  {ok, marshal:load(Type, Row, BelongsTo, HasMany, Backend)}.
+  {Type, Row, BelongsTo, _HasMany} = find(Type, Condition, Backend),
+  HasMany = find_has_many_relationships(Type, Row, Backend),
+  {ok, marshal:load(Type, Row, BelongsTo, group_by_type(HasMany), Backend)}.
+
+group_by_type(HasManyAttrs) ->
+  Dict = lists:foldl(fun({Type, Row, BelongsTo, HasMany}, Store) ->
+			 dict:append(Type, {Row, BelongsTo, HasMany}, Store)
+		     end,
+		     dict:new(),
+		     lists:flatten(HasManyAttrs)),
+  dict:to_list(Dict).
 
 handle_save(Type, Value, Backend) ->
   {ok, Id} = Backend:save(Type, Value),
@@ -79,13 +88,15 @@ module_name(subsidiary) ->
 module_name(contract) ->
   contracts;
 module_name(invoice) ->
-  invoices.
+  invoices;
+module_name(invoice_detail) ->
+  invoice_details.
 
 where(Type, Condition, Backend) ->
   {ok, Rows} = Backend:where(Type, Condition),
   lists:map(fun(Row) ->
 		BelongsTo = find_belongs_to(Type, Row, Backend),
-		HasMany = {},
+		HasMany = [],
 		{Type, Row, BelongsTo, HasMany}
 	    end,
 	    Rows).
@@ -105,3 +116,13 @@ find_belong_to({Type, RelationAttrs}, Attributes, Backend) ->
   ForeignKey = proplists:get_value(foreign_key, RelationAttrs),
   ForeignKeyValue = proplists:get_value(ForeignKey, Attributes),
   find(Type, {id, '=', ForeignKeyValue}, Backend).
+
+find_has_many_relationships(Type, Attributes, Backend) ->
+  ModuleName = module_name(Type),
+  HasMany = proplists:get_value(has_many, ModuleName:module_info(attributes)),
+  lists:map(fun(Value) -> find_has_many(Value, Attributes, Backend) end, HasMany).
+
+find_has_many({Type, RelationAttrs}, Attributes, Backend) ->
+  ForeignKey = proplists:get_value(foreign_key, RelationAttrs),
+  ForeignKeyValue = proplists:get_value(id, Attributes),
+  where(Type, {ForeignKey, '=', ForeignKeyValue}, Backend).

@@ -1,7 +1,11 @@
 -module(invoicing).
 
--export([process_merchant/2,
+-export([start/0,
+	 process_merchant/2,
 	 create_invoices/3]).
+
+start() ->
+  application:start(invoicing).
 
 process_merchant(Subsidiary, Merchant) ->
   process_merchant_sup:start_child([Subsidiary, Merchant]).

@@ -2,6 +2,8 @@
 
 -belongs_to([]).
 
+-has_many([]).
+
 -record(subsidiary, {id, name, country, last_assigned_number}).
 %%% Types
 -opaque subsidiary() :: #subsidiary{

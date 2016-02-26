@@ -21,15 +21,18 @@ dump(Invoice, postgresql) ->
   [InvoiceAttrs, InvoiceDetails].
 
 -spec load(list(), list(), list(), postgresql) -> invoices:invoice().
-load(Attributes, BelongsToAttrs, _HasManyAttrs, postgresql) ->
-  InvoiceId = proplists:get_value(id, Attributes),
+load(Attributes, BelongsToAttrs, HasManyAttrs, postgresql) ->
   Amount = proplists:get_value(amount, Attributes),
   Memo = proplists:get_value(memo, Attributes),
   BelongsTo = load_belongs_to(BelongsToAttrs, postgresql),
-  %InvoiceDetails = store:where(postgresql, invoice_detail, {invoice_id, '=', InvoiceId}),
   Args = [Amount, Memo] ++ BelongsTo ++ [maps:from_list(Attributes)],
-  apply(invoices, new, Args).
-  %invoices:set(invoice_details, InvoiceDetails, apply(invoices, new, Args)).
+  Invoice = apply(invoices, new, Args),
+
+  lists:foldl(fun({Type, HasManyValue}, NewInvoice) ->
+		 invoices:set(attr(Type), HasManyValue, NewInvoice)
+	     end,
+	     Invoice,
+	     load_has_many(HasManyAttrs, postgresql)).
 
 to_proplist(Invoice) ->
   to_proplist(Invoice, []).
@@ -43,3 +46,16 @@ load_belongs_to(BelongsToAttrs, Backend) ->
 		marshal:load(Type, Attrs, BelongsTo, HasMany, Backend)
 	    end,
 	    BelongsToAttrs).
+
+load_has_many(HasManyAttrs, Backend) ->
+  lists:map(fun({Type, Values}) ->
+		HasManyValues = lists:map(fun({Attrs, BelongsTo, HasMany}) ->
+					      marshal:load(Type, Attrs, BelongsTo, HasMany, Backend)
+					  end,
+					  Values),
+		{Type, HasManyValues}
+	    end,
+	    HasManyAttrs).
+
+attr(invoice_detail) ->
+  invoice_details.

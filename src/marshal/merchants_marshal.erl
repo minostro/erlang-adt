@@ -16,12 +16,17 @@ dump(Merchant, postgresql) ->
   [Attrs, Descendants].
 
 -spec load(attrs(), list(attrs()), list(attrs()), postgresql) -> merchants:merchant().
-load(Attributes, BelongsToAttrs, _HasManyAttrs, postgresql) ->
+load(Attributes, BelongsToAttrs, HasManyAttrs, postgresql) ->
   LegalEntityId = proplists:get_value(legal_entity_id, Attributes),
   CompanyName = proplists:get_value(company_name, Attributes),
   BelongsTo = load_belongs_to(BelongsToAttrs, postgresql),
   Args = [LegalEntityId, CompanyName] ++ BelongsTo ++ [maps:from_list(Attributes)],
-  apply(merchants, new, Args).
+  Merchant = apply(merchants, new,Args),
+  lists:foldl(fun({Type, HasManyValue}, NewMerchant) ->
+		  merchants:set(attr(Type), HasManyValue, NewMerchant)
+	      end,
+	      Merchant,
+	      load_has_many(HasManyAttrs, postgresql)).
 
 to_proplist(Merchant) ->
   lists:flatmap(fun(Field)-> [{Field, merchants:get(Field, Merchant)}] end, ?FIELDS).
@@ -31,3 +36,16 @@ load_belongs_to(BelongsToAttrs, Backend) ->
 		marshal:load(Type, Attrs, BelongsTo, HasMany, Backend)
 	    end,
 	    BelongsToAttrs).
+
+load_has_many(HasManyAttrs, Backend) ->
+  lists:map(fun({Type, Values}) ->
+		HasManyValues = lists:map(fun({Attrs, BelongsTo, HasMany}) ->
+					      marshal:load(Type, Attrs, BelongsTo, HasMany, Backend)
+					  end,
+					  Values),
+		{Type, HasManyValues}
+	    end,
+	    HasManyAttrs).
+
+attr(contract) ->
+  contracts.

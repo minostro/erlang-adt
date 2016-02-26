@@ -2,7 +2,8 @@
 
 -belongs_to([{subsidiary, [{foreign_key, subsidiary_id}]},
 	     {merchant, [{foreign_key, merchant_id}]}]).
--has_many([invoice_detail]).
+
+-has_many([{invoice_detail, [{foreign_key, invoice_id}]}]).
 
 -record(invoice, {id, amount, memo, title, merchant, subsidiary, invoice_details}).
 

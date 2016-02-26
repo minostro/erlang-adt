@@ -1,5 +1,9 @@
 -module(invoice_details).
 
+-belongs_to([]).
+
+-has_many([]).
+
 -record(invoice_detail, {id, description, amount}).
 %%% Types
 -opaque invoice_detail() :: #invoice_detail{
