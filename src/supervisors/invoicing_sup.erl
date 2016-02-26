@@ -35,5 +35,11 @@ init([]) ->
     restart => permanent,
     shutdown => brutal_kill,
     type => supervisor},
-  Children = [VoucherService, ProcessMerchantSup, CreateInvoicesSup],
+  StoreSupervisor = #{
+    id => store_sup,
+    start => {store_sup, start_link, []},
+    restart => permanent,
+    shutdown => brutal_kill,
+    type => supervisor},
+  Children = [VoucherService, ProcessMerchantSup, CreateInvoicesSup, StoreSupervisor],
   {ok, {SupervisorFlags, Children} }.

@@ -42,7 +42,6 @@ pluralize(Type) ->
 
 load_belongs_to(BelongsToAttrs, Backend) ->
   lists:map(fun({Type, Attrs, BelongsTo, HasMany}) ->
-		erlang:display(Attrs),
-		{Type, marshal:load(Type, Attrs, BelongsTo, HasMany, Backend)}
+		marshal:load(Type, Attrs, BelongsTo, HasMany, Backend)
 	    end,
 	    BelongsToAttrs).

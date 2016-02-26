@@ -28,6 +28,6 @@ to_proplist(Merchant) ->
 
 load_belongs_to(BelongsToAttrs, Backend) ->
   lists:map(fun({Type, Attrs, BelongsTo, HasMany}) ->
-		{Type, marshal:load(Type, Attrs, BelongsTo, HasMany, Backend)}
+		marshal:load(Type, Attrs, BelongsTo, HasMany, Backend)
 	    end,
 	    BelongsToAttrs).

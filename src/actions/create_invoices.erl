@@ -17,7 +17,7 @@ start_link(From, Subsidiary, Contract, VoucherSummaries) ->
 
 perform(Subsidiary, Contract, VoucherSummaries) ->
   Invoice = build_invoice(Subsidiary, Contract, VoucherSummaries),
-  store:save(postgresql, invoice, Invoice).
+  store:save(invoice, Invoice).
 
 -spec build_invoice(subsidiaries:subsidiary(), contracts:contract(), list()) -> invoices:invoice().
 build_invoice(Subsidiary, Contract, VoucherSummaries) ->

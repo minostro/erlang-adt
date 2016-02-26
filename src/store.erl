@@ -57,13 +57,12 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
 
-
 handle_where(Type, Condition, Backend) ->
-  {ok, Rows} = Backend:where(Type, Condition),
-  {ok, lists:map(fun(Row) ->
-		marshal:load(Type, Row, postgresql)
-	    end,
-	    Rows)}.
+  Rows = where(Type, Condition, Backend),
+  {ok, lists:map(fun({RowType, Row, BelongsTo, HasMany}) ->
+		     marshal:load(RowType, Row, BelongsTo, HasMany, Backend)
+		 end,
+		 Rows)}.
 
 handle_find(Type, Condition, Backend) ->
   {Type, Row, BelongsTo, HasMany} = find(Type, Condition, Backend),
@@ -81,6 +80,15 @@ module_name(contract) ->
   contracts;
 module_name(invoice) ->
   invoices.
+
+where(Type, Condition, Backend) ->
+  {ok, Rows} = Backend:where(Type, Condition),
+  lists:map(fun(Row) ->
+		BelongsTo = find_belongs_to(Type, Row, Backend),
+		HasMany = {},
+		{Type, Row, BelongsTo, HasMany}
+	    end,
+	    Rows).
 
 find(Type, Condition, Backend) ->
   {ok, Row} = Backend:find(Type, Condition),
