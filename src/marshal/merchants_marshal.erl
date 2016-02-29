@@ -21,7 +21,7 @@ load(Attributes, BelongsToAttrs, HasManyAttrs, postgresql) ->
   CompanyName = proplists:get_value(company_name, Attributes),
   BelongsTo = load_belongs_to(BelongsToAttrs, postgresql),
   Args = [LegalEntityId, CompanyName] ++ BelongsTo ++ [maps:from_list(Attributes)],
-  Merchant = apply(merchants, new,Args),
+  Merchant = apply(merchants, new, Args),
   lists:foldl(fun({Type, HasManyValue}, NewMerchant) ->
 		  merchants:set(attr(Type), HasManyValue, NewMerchant)
 	      end,
